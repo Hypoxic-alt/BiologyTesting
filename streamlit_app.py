@@ -1,68 +1,80 @@
 import streamlit as st
 import graphviz
 
-st.title("Energy Transfer with Losses Diagram")
-st.write(
+st.title("Energy Transfer with Losses and Efficiency Calculations")
+st.markdown(
     """
-    This diagram illustrates the flow of energy through five trophic levels.  
-    Losses due to **respiration** are shown as arrows to the **right**,  
-    while losses due to **decomposition** are shown as arrows to the **left**.
-    
-    The example values are:
-    
-    - **Primary Producer (PP):** 1000 J received from the Sun  
-      &rarr; 600 J lost to respiration, 200 J lost to decomposition, 200 J passed on.
-    - **Primary Consumer (PC):** 200 J received from PP  
-      &rarr; 120 J lost to respiration, 40 J lost to decomposition, 40 J passed on.
-    - **Secondary Consumer (SC):** 40 J received from PC  
-      &rarr; 24 J lost to respiration, 8 J lost to decomposition, 8 J passed on.
-    - **Apex Predator (AP):** 8 J received from SC  
-      &rarr; 4 J lost to respiration, 3 J lost to decomposition (leaving 1 J net).
+This diagram illustrates the flow of energy through five trophic levels.  
+For each level, the **input energy** is split into energy lost to **respiration** and **decomposition** (both shown on the same horizontal level as the trophic node), with the remaining energy transferred to the next trophic level.
+
+The trophic transfer efficiency is calculated as:  
+\\( \\text{Efficiency} = \\frac{\\text{Transferred Energy}}{\\text{Input Energy}} \\times 100\\% \\)
+
+**Example Values:**
+
+- **Primary Producer:** Input: 1000 J, Respiration: 600 J, Decomposition: 200 J, Transfer: 200 J, Efficiency: 20%
+- **Primary Consumer:** Input: 200 J, Respiration: 120 J, Decomposition: 40 J, Transfer: 40 J, Efficiency: 20%
+- **Secondary Consumer:** Input: 40 J, Respiration: 24 J, Decomposition: 8 J, Transfer: 8 J, Efficiency: 20%
+- **Apex Predator:** Input: 8 J, Respiration: 4 J, Decomposition: 3 J, Transfer: 1 J, Efficiency: 12.5%
     """
 )
 
-# Create a Graphviz Digraph with a top-to-bottom layout
+# Create a Graphviz Digraph with a top-to-bottom layout.
 diagram = graphviz.Digraph(format='png')
 diagram.attr(rankdir='TB')
 
-# Define the main nodes with energy values
+# --- Sun Node ---
 diagram.node("Sun", "Sun\n(1000 J)")
-diagram.node("PP", "Primary Producer\n(1000 J input)")
-diagram.node("PC", "Primary Consumer\n(200 J input)")
-diagram.node("SC", "Secondary Consumer\n(40 J input)")
-diagram.node("AP", "Apex Predator\n(8 J input)")
 
-# Draw the main vertical energy flow edges
-diagram.edge("Sun", "PP", label="1000 J sunlight")
-diagram.edge("PP", "PC", label="200 J")
-diagram.edge("PC", "SC", label="40 J")
-diagram.edge("SC", "AP", label="8 J")
+# --- Primary Producer Group ---
+# Group the Primary Producer’s main energy and its losses on the same horizontal level.
+with diagram.subgraph() as pp:
+    pp.attr(rank='same')
+    pp.node("PP_main", "Primary Producer\nInput: 1000 J")
+    pp.node("PP_resp", "Respiration\n600 J")
+    pp.node("PP_decomp", "Decomposition\n200 J")
 
-# --- Primary Producer losses ---
-# Create extra nodes for losses at the Primary Producer level
-diagram.node("PP_R", "Respiration\n600 J")
-diagram.node("PP_D", "Decomposition\n200 J")
-# Draw edges from PP to its loss nodes:
-#   Use tailport and headport to encourage right (east) for respiration and left (west) for decomposition
-diagram.edge("PP", "PP_R", label="600 J", tailport="e", headport="w")
-diagram.edge("PP", "PP_D", label="200 J", tailport="w", headport="e")
+# --- Primary Consumer Group ---
+with diagram.subgraph() as pc:
+    pc.attr(rank='same')
+    pc.node("PC_main", "Primary Consumer\nInput: 200 J")
+    pc.node("PC_resp", "Respiration\n120 J")
+    pc.node("PC_decomp", "Decomposition\n40 J")
 
-# --- Primary Consumer losses ---
-diagram.node("PC_R", "Respiration\n120 J")
-diagram.node("PC_D", "Decomposition\n40 J")
-diagram.edge("PC", "PC_R", label="120 J", tailport="e", headport="w")
-diagram.edge("PC", "PC_D", label="40 J", tailport="w", headport="e")
+# --- Secondary Consumer Group ---
+with diagram.subgraph() as sc:
+    sc.attr(rank='same')
+    sc.node("SC_main", "Secondary Consumer\nInput: 40 J")
+    sc.node("SC_resp", "Respiration\n24 J")
+    sc.node("SC_decomp", "Decomposition\n8 J")
 
-# --- Secondary Consumer losses ---
-diagram.node("SC_R", "Respiration\n24 J")
-diagram.node("SC_D", "Decomposition\n8 J")
-diagram.edge("SC", "SC_R", label="24 J", tailport="e", headport="w")
-diagram.edge("SC", "SC_D", label="8 J", tailport="w", headport="e")
+# --- Apex Predator Group ---
+with diagram.subgraph() as ap:
+    ap.attr(rank='same')
+    ap.node("AP_main", "Apex Predator\nInput: 8 J")
+    ap.node("AP_resp", "Respiration\n4 J")
+    ap.node("AP_decomp", "Decomposition\n3 J")
 
-# --- Apex Predator losses ---
-diagram.node("AP_R", "Respiration\n4 J")
-diagram.node("AP_D", "Decomposition\n3 J")
-diagram.edge("AP", "AP_R", label="4 J", tailport="e", headport="w")
-diagram.edge("AP", "AP_D", label="3 J", tailport="w", headport="e")
+# --- Connect the Trophic Levels ---
+# From Sun to Primary Producer:
+diagram.edge("Sun", "PP_main", label="1000 J from sunlight")
+
+# For Primary Producer:
+# Transfer = 1000 - (600 + 200) = 200 J; Efficiency = (200/1000)*100 = 20%
+diagram.edge("PP_main", "PC_main", label="Transfer: 200 J\nEfficiency: 20%")
+
+# For Primary Consumer:
+# Transfer = 200 - (120 + 40) = 40 J; Efficiency = 20%
+diagram.edge("PC_main", "SC_main", label="Transfer: 40 J\nEfficiency: 20%")
+
+# For Secondary Consumer:
+# Transfer = 40 - (24 + 8) = 8 J; Efficiency = 20%
+diagram.edge("SC_main", "AP_main", label="Transfer: 8 J\nEfficiency: 20%")
+
+# For Apex Predator, while there is no further trophic transfer,
+# we can optionally show its net energy and efficiency:
+# Net Energy = 8 - (4 + 3) = 1 J; Efficiency = (1/8)*100 ≈ 12.5%
+diagram.node("AP_net", "Net Energy: 1 J\nEfficiency: 12.5%")
+diagram.edge("AP_main", "AP_net", style="dotted", arrowhead="none")
 
 st.graphviz_chart(diagram)
