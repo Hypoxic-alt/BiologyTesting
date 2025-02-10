@@ -10,23 +10,25 @@ def generate_data():
     data['sun'] = sun
 
     # Primary Producer (PP)
+    # For primary producers, we interpret the input energy as GPP.
     pp_eff = round(random.uniform(7, 15), 1)
-    pp_input = sun
-    pp_transfer = pp_input * (pp_eff / 100)
-    pp_losses = pp_input - pp_transfer
+    pp_GPP = sun  # Assume the plant captures all the sun energy available in this simplified model.
+    pp_NPP = pp_GPP * (pp_eff / 100)  # NPP is the net energy available for transfer.
+    pp_losses = pp_GPP - pp_NPP
     pp_resp = int(round(0.75 * pp_losses))
     pp_decomp = int(round(pp_losses - pp_resp))
     data['PP'] = {
-        "input": int(round(pp_input)),
+        "GPP": int(round(pp_GPP)),
+        "NPP": int(round(pp_NPP)),
         "eff": pp_eff,
-        "transfer": int(round(pp_transfer)),
         "losses": int(round(pp_losses)),
         "resp": pp_resp,
         "decomp": pp_decomp
     }
 
     # Primary Consumer (PC)
-    pc_input = pp_transfer
+    # For heterotrophs we continue to use "input" as the energy they receive.
+    pc_input = pp_NPP
     pc_eff = round(random.uniform(7, 15), 1)
     pc_transfer = pc_input * (pc_eff / 100)
     pc_losses = pc_input - pc_transfer
@@ -34,15 +36,15 @@ def generate_data():
     pc_decomp = int(round(pc_losses - pc_resp))
     data['PC'] = {
         "input": int(round(pc_input)),
-        "eff": pc_eff,
         "transfer": int(round(pc_transfer)),
+        "eff": pc_eff,
         "losses": int(round(pc_losses)),
         "resp": pc_resp,
         "decomp": pc_decomp
     }
 
     # Secondary Consumer (SC)
-    sc_input = pc_transfer
+    sc_input = data['PC']["transfer"]
     sc_eff = round(random.uniform(7, 15), 1)
     sc_transfer = sc_input * (sc_eff / 100)
     sc_losses = sc_input - sc_transfer
@@ -50,15 +52,15 @@ def generate_data():
     sc_decomp = int(round(sc_losses - sc_resp))
     data['SC'] = {
         "input": int(round(sc_input)),
-        "eff": sc_eff,
         "transfer": int(round(sc_transfer)),
+        "eff": sc_eff,
         "losses": int(round(sc_losses)),
         "resp": sc_resp,
         "decomp": sc_decomp
     }
 
     # Apex Predator (AP)
-    ap_input = sc_transfer
+    ap_input = data['SC']["transfer"]
     ap_eff = round(random.uniform(7, 15), 1)
     ap_net = ap_input * (ap_eff / 100)
     ap_losses = ap_input - ap_net
@@ -66,8 +68,8 @@ def generate_data():
     ap_decomp = int(round(ap_losses - ap_resp))
     data['AP'] = {
         "input": int(round(ap_input)),
-        "eff": ap_eff,
         "net": int(round(ap_net)),
+        "eff": ap_eff,
         "losses": int(round(ap_losses)),
         "resp": ap_resp,
         "decomp": ap_decomp
@@ -92,63 +94,68 @@ if st.button("Show Answer"):
 data = st.session_state['data']
 show_ans = st.session_state['show_answers']
 
-# Create a Graphviz Digraph (vertical top-to-bottom)
+# Create a Graphviz Digraph with a top-to-bottom layout.
 diagram = graphviz.Digraph(format='png')
 diagram.attr(rankdir='TB')
 
 # Sun node
 diagram.node("Sun", f"Sun\n({data['sun']} J)")
 
-# Use HTML tables to build the nodes for each trophic level.
-def build_level_node(level_name, display_name, level_data):
+# Use an HTML table for each trophic level node.
+def build_level_node(display_name, level_data, is_primary=False):
+    if is_primary:
+        # For the primary producer, show GPP and NPP.
+        center_text = f"GPP: {level_data['GPP']} J<br/>NPP: {level_data['NPP']} J"
+    else:
+        center_text = f"Input: {level_data['input']} J"
     return f'''<
 <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
   <TR>
     <TD>Decomposition<br/>{level_data['decomp']} J</TD>
-    <TD>{display_name}<br/>Input: {level_data['input']} J</TD>
+    <TD>{display_name}<br/>{center_text}</TD>
     <TD>Respiration<br/>{level_data['resp']} J</TD>
   </TR>
 </TABLE>
 >'''
 
-# Primary Producer node
-diagram.node("PP", build_level_node("PP", "Primary Producer", data['PP']))
+# Primary Producer node (labeled with GPP/NPP)
+diagram.node("PP", build_level_node("Primary Producer", data['PP'], is_primary=True))
 
 # Primary Consumer node
-diagram.node("PC", build_level_node("PC", "Primary Consumer", data['PC']))
+diagram.node("PC", build_level_node("Primary Consumer", data['PC']))
 
 # Secondary Consumer node
-diagram.node("SC", build_level_node("SC", "Secondary Consumer", data['SC']))
+diagram.node("SC", build_level_node("Secondary Consumer", data['SC']))
 
 # Apex Predator node
-diagram.node("AP", build_level_node("AP", "Apex Predator", data['AP']))
+diagram.node("AP", build_level_node("Apex Predator", data['AP']))
 
 # Vertical connections (edges)
-# Sun to Primary Producer
-diagram.edge("Sun", "PP", label=f"{data['sun']} J from sunlight")
+# Sun to Primary Producer: here the sunlight leads to the PP's GPP.
+diagram.edge("Sun", "PP", label=f"Sunlight: {data['sun']} J")
 
-# Primary Producer to Primary Consumer
-pp_edge_label = f"Transfer: {data['PP']['transfer']} J"
+# Primary Producer to Primary Consumer: now label the transferred energy as NPP.
+pp_edge_label = f"NPP: {data['PP']['NPP']} J"
 if show_ans:
-    pp_edge_label += f"\nEfficiency: {data['PP']['eff']}% ({data['PP']['transfer']} J / {data['PP']['input']} J * 100)"
+    pp_edge_label += f"\nEfficiency: {data['PP']['eff']}% ( {data['PP']['NPP']} J / {data['PP']['GPP']} J * 100 )"
 diagram.edge("PP", "PC", label=pp_edge_label)
 
 # Primary Consumer to Secondary Consumer
 pc_edge_label = f"Transfer: {data['PC']['transfer']} J"
 if show_ans:
-    pc_edge_label += f"\nEfficiency: {data['PC']['eff']}% ({data['PC']['transfer']} J / {data['PC']['input']} J * 100)"
+    pc_edge_label += f"\nEfficiency: {data['PC']['eff']}% ( {data['PC']['transfer']} J / {data['PC']['input']} J * 100 )"
 diagram.edge("PC", "SC", label=pc_edge_label)
 
 # Secondary Consumer to Apex Predator
 sc_edge_label = f"Transfer: {data['SC']['transfer']} J"
 if show_ans:
-    sc_edge_label += f"\nEfficiency: {data['SC']['eff']}% ({data['SC']['transfer']} J / {data['SC']['input']} J * 100)"
+    sc_edge_label += f"\nEfficiency: {data['SC']['eff']}% ( {data['SC']['transfer']} J / {data['SC']['input']} J * 100 )"
 diagram.edge("SC", "AP", label=sc_edge_label)
 
 # For Apex Predator, show net energy in an extra node.
 ap_net_label = f"Net Energy: {data['AP']['net']} J"
 if show_ans:
-    ap_net_label += f"\nEfficiency: {data['AP']['eff']}% ({data['AP']['net']} J / {data['AP']['input']} J * 100)"
+    ap_net_label += f"\nEfficiency: {data['AP']['eff']}% ( {data['AP']['net']} J / {data['AP']['input']} J * 100 )"
 diagram.node("AP_net", ap_net_label)
 diagram.edge("AP", "AP_net", style="dotted", arrowhead="none")
 
