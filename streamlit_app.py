@@ -85,7 +85,7 @@ if st.button("Randomize Values"):
     st.session_state['data'] = generate_data()
     st.session_state['show_answers'] = False
 
-# Button to show answers (i.e. display efficiencies)
+# Button to show answers (i.e. display efficiencies and their calculations)
 if st.button("Show Answer"):
     st.session_state['show_answers'] = True
 
@@ -99,54 +99,29 @@ diagram.attr(rankdir='TB')
 # Sun node
 diagram.node("Sun", f"Sun\n({data['sun']} J)")
 
-# Create nodes for each trophic level using HTML tables.
-# Primary Producer (PP)
-pp_label = f'''<
+# Use HTML tables to build the nodes for each trophic level.
+def build_level_node(level_name, display_name, level_data):
+    return f'''<
 <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
   <TR>
-    <TD>Decomposition<br/>{data['PP']['decomp']} J</TD>
-    <TD>Primary Producer<br/>Input: {data['PP']['input']} J</TD>
-    <TD>Respiration<br/>{data['PP']['resp']} J</TD>
+    <TD>Decomposition<br/>{level_data['decomp']} J</TD>
+    <TD>{display_name}<br/>Input: {level_data['input']} J</TD>
+    <TD>Respiration<br/>{level_data['resp']} J</TD>
   </TR>
 </TABLE>
 >'''
-diagram.node("PP", pp_label)
 
-# Primary Consumer (PC)
-pc_label = f'''<
-<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
-  <TR>
-    <TD>Decomposition<br/>{data['PC']['decomp']} J</TD>
-    <TD>Primary Consumer<br/>Input: {data['PC']['input']} J</TD>
-    <TD>Respiration<br/>{data['PC']['resp']} J</TD>
-  </TR>
-</TABLE>
->'''
-diagram.node("PC", pc_label)
+# Primary Producer node
+diagram.node("PP", build_level_node("PP", "Primary Producer", data['PP']))
 
-# Secondary Consumer (SC)
-sc_label = f'''<
-<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
-  <TR>
-    <TD>Decomposition<br/>{data['SC']['decomp']} J</TD>
-    <TD>Secondary Consumer<br/>Input: {data['SC']['input']} J</TD>
-    <TD>Respiration<br/>{data['SC']['resp']} J</TD>
-  </TR>
-</TABLE>
->'''
-diagram.node("SC", sc_label)
+# Primary Consumer node
+diagram.node("PC", build_level_node("PC", "Primary Consumer", data['PC']))
 
-# Apex Predator (AP)
-ap_label = f'''<
-<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
-  <TR>
-    <TD>Decomposition<br/>{data['AP']['decomp']} J</TD>
-    <TD>Apex Predator<br/>Input: {data['AP']['input']} J</TD>
-    <TD>Respiration<br/>{data['AP']['resp']} J</TD>
-  </TR>
-</TABLE>
->'''
-diagram.node("AP", ap_label)
+# Secondary Consumer node
+diagram.node("SC", build_level_node("SC", "Secondary Consumer", data['SC']))
+
+# Apex Predator node
+diagram.node("AP", build_level_node("AP", "Apex Predator", data['AP']))
 
 # Vertical connections (edges)
 # Sun to Primary Producer
@@ -155,23 +130,26 @@ diagram.edge("Sun", "PP", label=f"{data['sun']} J from sunlight")
 # Primary Producer to Primary Consumer
 pp_edge_label = f"Transfer: {data['PP']['transfer']} J"
 if show_ans:
-    pp_edge_label += f"\nEfficiency: {data['PP']['eff']}%"
+    pp_edge_label += f"\nEfficiency: {data['PP']['eff']}% ({data['PP']['transfer']} J / {data['PP']['input']} J * 100)"
 diagram.edge("PP", "PC", label=pp_edge_label)
 
 # Primary Consumer to Secondary Consumer
 pc_edge_label = f"Transfer: {data['PC']['transfer']} J"
 if show_ans:
-    pc_edge_label += f"\nEfficiency: {data['PC']['eff']}%"
+    pc_edge_label += f"\nEfficiency: {data['PC']['eff']}% ({data['PC']['transfer']} J / {data['PC']['input']} J * 100)"
 diagram.edge("PC", "SC", label=pc_edge_label)
 
 # Secondary Consumer to Apex Predator
 sc_edge_label = f"Transfer: {data['SC']['transfer']} J"
 if show_ans:
-    sc_edge_label += f"\nEfficiency: {data['SC']['eff']}%"
+    sc_edge_label += f"\nEfficiency: {data['SC']['eff']}% ({data['SC']['transfer']} J / {data['SC']['input']} J * 100)"
 diagram.edge("SC", "AP", label=sc_edge_label)
 
 # For Apex Predator, show net energy in an extra node.
-diagram.node("AP_net", f"Net Energy: {data['AP']['net']} J" + (f"\nEfficiency: {data['AP']['eff']}%" if show_ans else ""))
+ap_net_label = f"Net Energy: {data['AP']['net']} J"
+if show_ans:
+    ap_net_label += f"\nEfficiency: {data['AP']['eff']}% ({data['AP']['net']} J / {data['AP']['input']} J * 100)"
+diagram.node("AP_net", ap_net_label)
 diagram.edge("AP", "AP_net", style="dotted", arrowhead="none")
 
 st.graphviz_chart(diagram)
